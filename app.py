@@ -63,7 +63,7 @@ user_contact_number = st.text_input("Contact Number", "")
 user_ic_number = st.text_input("IC Number", "") 
 
 # Validate required fields
-inputs_valid = all([user_name.strip(), user_school_name.strip(), user_school_number.strip(), user_contact_number.strip()])
+inputs_valid = all([user_name.strip(), user_school_name.strip(), user_school_number.strip(), user_contact_number.strip(), user_ic_number.strip()])
 
 # Main logic
 if excel_file and inputs_valid:
@@ -85,8 +85,8 @@ if excel_file and inputs_valid:
         None if len(participants.columns) == 1 else participants.columns[1]
     )
 
-    st.markdown(f"Using column **{student_col}** for Student names.")
-    st.markdown(f"Using column **{school_col}** for School names.")
+    st.markdown(f"Using column {student_col} for Student names.")
+    st.markdown(f"Using column {school_col} for School names.")
     st.success(f" Loaded {len(participants)} participants.")
 
     # Generate button
