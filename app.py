@@ -38,8 +38,6 @@ if 'user_data' not in st.session_state:
 st.set_page_config(page_title="Certificate Generator", page_icon="🎓", layout="wide")
 st.title("Automated Certificate Generator")
 
-# File upload
-excel_file = st.file_uploader("Upload Participant List (Excel)", type=["xlsx"])
 
 # Fixed certificate template path
 template_path = './certificate_template.pdf'
@@ -68,7 +66,7 @@ school_color = "#000000"
 
 # --- USER INPUT FIELDS INSIDE A FORM ---
 st.markdown("---")
-st.markdown("### 1. Submit Your Contact Details (Data is saved upon submission)")
+st.markdown("1. Submit Your Details to Download Certificates")
 
 # Use a form to require a submit button press
 with st.form("user_details_form"):
@@ -88,7 +86,7 @@ with st.form("user_details_form"):
         user_ic_number.strip()
     ])
 
-    submitted = st.form_submit_button("Submit Details & Save to Database")
+    submitted = st.form_submit_button("Submit Details")
 
 if submitted:
     if inputs_valid:
@@ -104,7 +102,7 @@ if submitted:
         }
         
         # --- NEW DATABASE INSERTION BLOCK ---
-        with st.spinner("Saving details to database..."):
+        with st.spinner("Saving details..."):
             try:
                 response = supabase.table("Generations").insert(user_data).execute()
                 
@@ -112,7 +110,7 @@ if submitted:
                     # Save to session state only after successful database insertion
                     st.session_state.details_submitted = True
                     st.session_state.user_data = user_data 
-                    st.success("User details submitted successfully! You can now upload your Excel file and generate certificates.")
+                    st.success("User details submitted and stored successfully! You can now upload your Excel file and generate certificates.")
                     st.balloons()
                 elif response.error:
                     st.session_state.details_submitted = False
@@ -132,127 +130,143 @@ if submitted:
 
 st.markdown("---")
 
-# --- MAIN LOGIC BLOCK (Checks for Excel file and submitted state) ---
-if excel_file and st.session_state.details_submitted:
+# --- MAIN LOGIC BLOCK (Checks for submitted state) ---
+if st.session_state.details_submitted:
     
-    st.markdown("2. Generate Certificates")
+    st.markdown("2. Generate Certificates") # Changed to H3 for consistency
 
-    # Read Excel and prepare columns
-    participants = pd.read_excel(excel_file, header=0)
-    
-    if participants.columns[0] == "" or participants.columns[0] is None:
-        participants.columns = ["Student Name"]
+    # File upload
+    excel_file = st.file_uploader("Upload Participant List (Excel)", type=["xlsx"])
 
-    # Auto-detect columns
-    student_col = next(
-        (c for c in participants.columns if "student" in c.lower() or "name" in c.lower()),
-        participants.columns[0]
-    )
-
-    school_col = next(
-        (c for c in participants.columns if "school" in c.lower() or "institution" in c.lower()),
-        None if len(participants.columns) == 1 else participants.columns[1]
-    )
-
-    st.info(f"Ready to process {len(participants)} participants. Using `{student_col}` for names.")
-
-    # --- GENERATE BUTTON (APPEARS ONLY WHEN INPUTS ARE VALID) ---
-    if st.button("Generate Certificates and Download Zip"):
+    # --- START OF FILE-DEPENDENT CODE BLOCK (Fixes the NameError) ---
+    if excel_file:
         
-        # Status update immediately after button click
-        with st.spinner("Starting certificate generation..."): 
-            st.caption("Initiating PDF merging and compression...")
-        
-        # --- CERTIFICATE GENERATION ---
-        zip_buf = io.BytesIO()
-        success, fail = 0, 0
+        # Read Excel and prepare columns
+        try:
+            # participants is defined here
+            participants = pd.read_excel(excel_file, header=0)
+        except Exception as e:
+            st.error(f"Error reading Excel file. Please ensure it is a valid format. ({e})")
+            st.stop() # Stop execution if file reading fails
 
-        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zipf:
-            status_placeholder = st.empty() 
-            
-            for idx, row in participants.iterrows():
-                status_placeholder.info(f"Processing certificate {idx + 1} of {len(participants)} for: {row[student_col]}...")
-                
-                try:
-                    raw_student = row[student_col]
-                    if pd.isna(raw_student) or str(raw_student).strip() == "":
-                        fail += 1
-                        continue
-                    student = str(raw_student).strip()
+        # Handle auto-generated column names if the first cell is empty
+        if participants.columns[0] == "" or participants.columns[0] is None:
+            participants.columns = ["Student Name"]
 
-                    school = ""
-                    if school_col is not None:
-                        raw_school = row[school_col]
-                        if not pd.isna(raw_school) and str(raw_school).strip() != "":
-                            school = str(raw_school).strip()
-
-                    # PDF Processing
-                    base_reader = PdfReader(template_path)
-                    base_page = base_reader.pages[0]
-                    media_box = base_page.mediabox
-                    w = float(media_box.width)
-                    h = float(media_box.height)
-
-                    # Create overlay canvas
-                    overlay_packet = io.BytesIO()
-                    c = canvas.Canvas(overlay_packet, pagesize=(w, h))
-                    
-                    # Draw Student Name
-                    c.setFillColorRGB(*hex_to_rgb(student_color))  
-                    c.setFont(student_font, student_font_size)     
-                    c.drawCentredString(student_x, student_y, student)
-
-                    # Draw School Name
-                    if school:
-                        c.setFillColorRGB(*hex_to_rgb(school_color))  
-                        c.setFont(school_font, school_font_size)      
-                        c.drawCentredString(school_x, school_y, school)
-
-                    c.save()
-                    overlay_packet.seek(0)
-
-                    # Merge PDF pages
-                    overlay_reader = PdfReader(overlay_packet)
-                    merged_page = PageObject.create_blank_page(width=w, height=h)
-                    merged_page.merge_page(base_page)
-                    merged_page.merge_page(overlay_reader.pages[0])
-
-                    # Write output PDF
-                    out_buf = io.BytesIO()
-                    writer = PdfWriter()
-                    writer.add_page(merged_page)
-                    writer.write(out_buf)
-                    out_buf.seek(0)
-
-                    # Safe filename and add to ZIP
-                    safe_name = re.sub(r'[<>:"/\\|?*]', "_", student.replace(" ", "_"))
-                    filename = f"{idx+1:03d}_{safe_name}_certificate.pdf"
-
-                    zipf.writestr(filename, out_buf.getvalue())
-                    success += 1
-
-                except Exception as e:
-                    fail += 1
-                    status_placeholder.warning(f"Error creating certificate for {student or 'Unknown'} (Row {idx+1}): {e}")
-
-        # Finalize and download
-        status_placeholder.empty() 
-        zip_buf.seek(0)
-        
-        # --- FINAL SUCCESS MESSAGE AND DOWNLOAD BUTTON ---
-        st.balloons()
-        st.success(f"Generation Completed! {success} successful, {fail} failed.")
-
-        st.download_button(
-            "Download All Certificates (.zip)",
-            data=zip_buf.getvalue(),
-            file_name="certificates.zip",
-            mime="application/zip"
+        # Auto-detect columns
+        student_col = next(
+            (c for c in participants.columns if "student" in c.lower() or "name" in c.lower()),
+            participants.columns[0]
         )
-        # --- END FINAL ---
+
+        school_col = next(
+            (c for c in participants.columns if "school" in c.lower() or "institution" in c.lower()),
+            None if len(participants.columns) == 1 else participants.columns[1]
+        )
+
+        st.info(f"Ready to process {len(participants)} participants. Using `{student_col}` for names.")
+
+        # --- GENERATE BUTTON (APPEARS ONLY WHEN FILE IS UPLOADED) ---
+        if st.button("Generate Certificates and Download Zip"):
+            
+            # Status update immediately after button click
+            with st.spinner("Starting certificate generation..."): 
+                st.caption("Initiating PDF merging and compression...")
+            
+            # --- CERTIFICATE GENERATION ---
+            zip_buf = io.BytesIO()
+            success, fail = 0, 0
+
+            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zipf:
+                status_placeholder = st.empty() 
+                
+                for idx, row in participants.iterrows():
+                    status_placeholder.info(f"Processing certificate {idx + 1} of {len(participants)} for: {row[student_col]}...")
+                    
+                    try:
+                        raw_student = row[student_col]
+                        if pd.isna(raw_student) or str(raw_student).strip() == "":
+                            fail += 1
+                            continue
+                        student = str(raw_student).strip()
+
+                        school = ""
+                        if school_col is not None:
+                            raw_school = row[school_col]
+                            if not pd.isna(raw_school) and str(raw_school).strip() != "":
+                                school = str(raw_school).strip()
+
+                        # PDF Processing
+                        base_reader = PdfReader(template_path)
+                        base_page = base_reader.pages[0]
+                        media_box = base_page.mediabox
+                        w = float(media_box.width)
+                        h = float(media_box.height)
+
+                        # Create overlay canvas
+                        overlay_packet = io.BytesIO()
+                        c = canvas.Canvas(overlay_packet, pagesize=(w, h))
+                        
+                        # Draw Student Name
+                        c.setFillColorRGB(*hex_to_rgb(student_color))  
+                        c.setFont(student_font, student_font_size)     
+                        c.drawCentredString(student_x, student_y, student)
+
+                        # Draw School Name
+                        if school:
+                            c.setFillColorRGB(*hex_to_rgb(school_color))  
+                            c.setFont(school_font, school_font_size)      
+                            c.drawCentredString(school_x, school_y, school)
+
+                        c.save()
+                        overlay_packet.seek(0)
+
+                        # Merge PDF pages
+                        overlay_reader = PdfReader(overlay_packet)
+                        merged_page = PageObject.create_blank_page(width=w, height=h)
+                        merged_page.merge_page(base_page)
+                        merged_page.merge_page(overlay_reader.pages[0])
+
+                        # Write output PDF
+                        out_buf = io.BytesIO()
+                        writer = PdfWriter()
+                        writer.add_page(merged_page)
+                        writer.write(out_buf)
+                        out_buf.seek(0)
+
+                        # Safe filename and add to ZIP
+                        safe_name = re.sub(r'[<>:"/\\|?*]', "_", student.replace(" ", "_"))
+                        filename = f"{idx+1:03d}_{safe_name}_certificate.pdf"
+
+                        zipf.writestr(filename, out_buf.getvalue())
+                        success += 1
+
+                    except Exception as e:
+                        fail += 1
+                        status_placeholder.warning(f"Error creating certificate for {student or 'Unknown'} (Row {idx+1}): {e}")
+
+            # Finalize and download
+            status_placeholder.empty() 
+            zip_buf.seek(0)
+            
+            # --- FINAL SUCCESS MESSAGE AND DOWNLOAD BUTTON ---
+            st.balloons()
+            st.success(f"Generation Completed! {success} successful, {fail} failed.")
+
+            st.download_button(
+                "Download All Certificates (.zip)",
+                data=zip_buf.getvalue(),
+                file_name="certificates.zip",
+                mime="application/zip"
+            )
+            # --- END FINAL ---
+    else:
+        # Message if details are submitted but file is missing
+        st.info("Please upload the Participant List (Excel) to proceed with generation.")
+
 
 # --- VALIDATION MESSAGES ---
 elif not st.session_state.details_submitted:
-    st.warning("Please submit your user details using the **Submit Details & Save to Database** button in section 1.")
-elif excel_file is None:
-    st.info("Please upload the Excel file in the first section to enable the 'Generate' button.")
+    st.warning("Please submit your user details using the Submit Details & Save to Database button in Section 1.")
+    
+# NOTE: The final 'elif excel_file is None' is no longer needed as the logic inside the main block handles the missing file state.
