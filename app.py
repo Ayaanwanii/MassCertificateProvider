@@ -8,8 +8,6 @@ import io, re, zipfile, os
 from supabase import create_client, Client
 
 # Register font (ensure this font file exists in your working folder)
-# NOTE: Using a relative path './Bliss Extra Bold.ttf' requires the font file to be present.
-pdfmetrics.registerFont(TTFont('BlissExtraBold', './Bliss Extra Bold.ttf'))
 
 # Supabase setup (use Streamlit secrets for credentials)
 SUPABASE_URL = st.secrets["supabase"]["url"]
