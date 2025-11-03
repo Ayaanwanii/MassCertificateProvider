@@ -66,7 +66,7 @@ school_color = "#000000"
 
 # --- USER INPUT FIELDS INSIDE A FORM ---
 st.markdown("---")
-st.markdown("1. Submit Your Details to Download Certificates")
+st.markdown("### 1. Submit Your Details to Download Certificates")
 
 # Use a form to require a submit button press
 with st.form("user_details_form"):
@@ -86,7 +86,7 @@ with st.form("user_details_form"):
         user_ic_number.strip()
     ])
 
-    submitted = st.form_submit_button("Submit Details")
+    submitted = st.form_submit_button("Submit Details & Save to Database")
 
 if submitted:
     if inputs_valid:
@@ -110,7 +110,7 @@ if submitted:
                     # Save to session state only after successful database insertion
                     st.session_state.details_submitted = True
                     st.session_state.user_data = user_data 
-                    st.success("User details submitted and stored successfully! You can now upload your Excel file and generate certificates.")
+                    st.success("User details submitted and stored successfully! You can now upload your Excel/CSV file and generate certificates.")
                     st.balloons()
                 elif response.error:
                     st.session_state.details_submitted = False
@@ -133,33 +133,32 @@ st.markdown("---")
 # --- MAIN LOGIC BLOCK (Checks for submitted state) ---
 if st.session_state.details_submitted:
     
-    st.markdown("2. Generate Certificates") # Changed to H3 for consistency
+    st.markdown("### 2. Generate Certificates")
 
-    # File upload
+    # File upload - MODIFIED TO ACCEPT CSV AND XLSX
     excel_file = st.file_uploader("Upload Participant List (Excel/CSV)", type=["xlsx", "csv"])
 
     # --- START OF FILE-DEPENDENT CODE BLOCK (Fixes the NameError) ---
     if excel_file:
         
-        # Read Excel and prepare columns
-       try:
-            # --- START CONDITIONAL READING LOGIC ---
+        try:
+            # Conditional reading based on file type
             file_name = excel_file.name.lower()
             
             if file_name.endswith('.csv'):
-                # Read CSV file
                 participants = pd.read_csv(excel_file, header=0)
             elif file_name.endswith(('.xlsx', '.xls')):
-                # Read Excel file
                 participants = pd.read_excel(excel_file, header=0)
             else:
                 st.error("Unsupported file format detected. Please upload an XLSX or CSV file.")
                 st.stop()
-            # --- END CONDITIONAL READING LOGIC ---
-       except Exception as e:
-            st.error(f"Error reading the file: {e}. Please ensure the file is correctly formatted.")
+            
+        except Exception as e:
+            st.error(f"Error reading file: {e}. Please check your file format and data integrity.")
             st.stop() # Stop execution if file reading fails
 
+        # --- ALL CODE THAT USES 'participants' MUST BE INSIDE THIS BLOCK ---
+        
         # Handle auto-generated column names if the first cell is empty
         if participants.columns[0] == "" or participants.columns[0] is None:
             participants.columns = ["Student Name"]
@@ -175,9 +174,9 @@ if st.session_state.details_submitted:
             None if len(participants.columns) == 1 else participants.columns[1]
         )
 
-        st.info(f"Ready to process {len(participants)} participants. Using `{student_col}` for names.")
+        st.info(f"Ready to process **{len(participants)}** participants. Using `{student_col}` for names.")
 
-        # --- GENERATE BUTTON (APPEARS ONLY WHEN FILE IS UPLOADED) ---
+        # --- GENERATE BUTTON (APPEARS ONLY WHEN FILE IS UPLOADED AND PROCESSED) ---
         if st.button("Generate Certificates and Download Zip"):
             
             # Status update immediately after button click
@@ -273,11 +272,9 @@ if st.session_state.details_submitted:
             # --- END FINAL ---
     else:
         # Message if details are submitted but file is missing
-        st.info("Please upload the Participant List (Excel) to proceed with generation.")
+        st.info("Please upload the **Participant List (Excel/CSV)** to proceed with generation.")
 
 
 # --- VALIDATION MESSAGES ---
 elif not st.session_state.details_submitted:
-    st.warning("Please submit your user details using the Submit Details & Save to Database button in Section 1.")
-    
-# NOTE: The final 'elif excel_file is None' is no longer needed as the logic inside the main block handles the missing file state.
+    st.warning("Please submit your user details using the **Submit Details & Save to Database** button in section 1.")
