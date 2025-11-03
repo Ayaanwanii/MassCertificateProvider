@@ -136,7 +136,7 @@ if st.session_state.details_submitted:
     st.markdown("2. Generate Certificates") # Changed to H3 for consistency
 
     # File upload
-    excel_file = st.file_uploader("Upload Participant List (Excel/CSV)", type=["xlsx", "csv""])
+    excel_file = st.file_uploader("Upload Participant List (Excel/CSV)", type=["xlsx", "csv"])
 
     # --- START OF FILE-DEPENDENT CODE BLOCK (Fixes the NameError) ---
     if excel_file:
