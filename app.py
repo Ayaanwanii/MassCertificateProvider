@@ -136,17 +136,28 @@ if st.session_state.details_submitted:
     st.markdown("2. Generate Certificates") # Changed to H3 for consistency
 
     # File upload
-    excel_file = st.file_uploader("Upload Participant List (Excel)", type=["xlsx"])
+    excel_file = st.file_uploader("Upload Participant List (Excel/CSV)", type=["xlsx", "csv""])
 
     # --- START OF FILE-DEPENDENT CODE BLOCK (Fixes the NameError) ---
     if excel_file:
         
         # Read Excel and prepare columns
-        try:
-            # participants is defined here
-            participants = pd.read_excel(excel_file, header=0)
-        except Exception as e:
-            st.error(f"Error reading Excel file. Please ensure it is a valid format. ({e})")
+       try:
+            # --- START CONDITIONAL READING LOGIC ---
+            file_name = excel_file.name.lower()
+            
+            if file_name.endswith('.csv'):
+                # Read CSV file
+                participants = pd.read_csv(excel_file, header=0)
+            elif file_name.endswith(('.xlsx', '.xls')):
+                # Read Excel file
+                participants = pd.read_excel(excel_file, header=0)
+            else:
+                st.error("Unsupported file format detected. Please upload an XLSX or CSV file.")
+                st.stop()
+            # --- END CONDITIONAL READING LOGIC ---
+       except Exception as e:
+            st.error(f"Error reading the file: {e}. Please ensure the file is correctly formatted.")
             st.stop() # Stop execution if file reading fails
 
         # Handle auto-generated column names if the first cell is empty
