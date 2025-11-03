@@ -66,7 +66,7 @@ school_color = "#000000"
 
 # --- USER INPUT FIELDS INSIDE A FORM ---
 st.markdown("---")
-st.markdown("### 1. Submit Your Details to Download Certificates")
+st.markdown("1. Submit Your Details to Download Certificates")
 
 # Use a form to require a submit button press
 with st.form("user_details_form"):
@@ -86,7 +86,7 @@ with st.form("user_details_form"):
         user_ic_number.strip()
     ])
 
-    submitted = st.form_submit_button("Submit Details & Save to Database")
+    submitted = st.form_submit_button("Submit Details")
 
 if submitted:
     if inputs_valid:
@@ -133,7 +133,7 @@ st.markdown("---")
 # --- MAIN LOGIC BLOCK (Checks for submitted state) ---
 if st.session_state.details_submitted:
     
-    st.markdown("### 2. Generate Certificates")
+    st.markdown("2. Generate Certificates")
 
     # File upload - MODIFIED TO ACCEPT CSV AND XLSX
     excel_file = st.file_uploader("Upload Participant List (Excel/CSV)", type=["xlsx", "csv"])
@@ -174,7 +174,7 @@ if st.session_state.details_submitted:
             None if len(participants.columns) == 1 else participants.columns[1]
         )
 
-        st.info(f"Ready to process **{len(participants)}** participants. Using `{student_col}` for names.")
+        st.info(f"Ready to process {len(participants)} participants. Using `{student_col}` for names.")
 
         # --- GENERATE BUTTON (APPEARS ONLY WHEN FILE IS UPLOADED AND PROCESSED) ---
         if st.button("Generate Certificates and Download Zip"):
@@ -272,9 +272,9 @@ if st.session_state.details_submitted:
             # --- END FINAL ---
     else:
         # Message if details are submitted but file is missing
-        st.info("Please upload the **Participant List (Excel/CSV)** to proceed with generation.")
+        st.info("Please upload the Participant List (Excel/CSV) to proceed with generation.")
 
 
 # --- VALIDATION MESSAGES ---
 elif not st.session_state.details_submitted:
-    st.warning("Please submit your user details using the **Submit Details & Save to Database** button in section 1.")
+    st.warning("Please submit your user details using the **Submit Details & Save to Database** button in Section 1.")
