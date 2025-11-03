@@ -6,6 +6,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io, re, zipfile, os
 from supabase import create_client, Client
+import datetime
 
 # Register font (ensure this font file exists in your working folder)
 
@@ -97,7 +98,10 @@ if excel_file and inputs_valid:
             "school_name": user_school_name.strip(),
             "school_number": user_school_number.strip(),
             "contact_number": user_contact_number.strip(),
-            "ic_number": user_ic_number.strip(), # MUST exist in Generations table!
+            "ic_number": user_ic_number.strip(), 
+            "timestamp": current_time,
+            # MUST exist in Generations table!
+            
         }
         
         try:
